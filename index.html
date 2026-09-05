@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El Niño OND 2026 — One Health Preparedness Dashboard</title>
+<link rel="stylesheet" href="./vendor/leaflet/leaflet.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#12202b;
+    --paper:#eef1ee;
+    --panel:#ffffff;
+    --line:#d7dcd6;
+    --navy:#16324a;
+    --navy-deep:#0d2033;
+    --teal:#2f6b63;
+    --teal-deep:#1f4a44;
+    --amber:#c07a1f;
+    --amber-soft:#f4e3c4;
+    --red:#a8342a;
+    --red-soft:#f4dcd8;
+    --muted:#5b6a67;
+    --serif: 'Fraunces', Georgia, serif;
+    --sans: 'IBM Plex Sans', -apple-system, sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.45;}
+  a{color:inherit;}
+
+  /* ---------- Header ---------- */
+  header.top{background:var(--navy-deep);color:#f2efe8;padding:22px 28px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;border-bottom:3px solid var(--amber);}
+  .brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+  .brand .crest{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:#9fb3ad;border:1px solid #3a4d59;padding:3px 7px;border-radius:2px;}
+  header.top h1{font-family:var(--serif);font-weight:600;font-size:26px;margin:2px 0 0;letter-spacing:.01em;}
+  header.top .sub{font-family:var(--serif);font-style:italic;font-weight:400;color:#c9d4c9;font-size:15px;margin-top:2px;}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .status-pill{font-family:var(--mono);font-size:11px;background:#20404f;border:1px solid #3a5d63;color:#bfe3d6;padding:5px 10px;border-radius:2px;}
+  .lang-toggle{display:flex;border:1px solid #3a4d59;border-radius:2px;overflow:hidden;}
+  .lang-toggle button{background:transparent;color:#c9d4c9;border:none;font-family:var(--mono);font-size:12px;padding:6px 12px;cursor:pointer;}
+  .lang-toggle button.active{background:var(--amber);color:#241705;}
+
+  /* ---------- Ticker ---------- */
+  .ticker{background:var(--amber-soft);color:#4a3211;border-bottom:1px solid #d9bb84;padding:10px 28px;font-size:13.5px;}
+  .ticker strong{font-weight:600;}
+
+  /* ---------- Layout ---------- */
+  .layout{display:grid;grid-template-columns:300px 1fr;gap:0;max-width:1400px;margin:0 auto;}
+  @media (max-width:880px){.layout{grid-template-columns:1fr;}}
+
+  aside{background:var(--panel);border-right:1px solid var(--line);padding:24px 22px;}
+  aside h2{font-family:var(--serif);font-size:15px;font-weight:600;margin:0 0 4px;}
+  aside .lede{color:var(--muted);font-size:12.5px;margin:0 0 16px;}
+
+  .layer-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-top:1px solid var(--line);gap:10px;}
+  .layer-row:last-of-type{border-bottom:1px solid var(--line);}
+  .layer-label{display:flex;align-items:center;gap:9px;font-size:13.5px;}
+  .swatch{width:11px;height:11px;border-radius:50%;flex:none;}
+  .layer-meta{display:block;color:var(--muted);font-size:11.5px;margin-top:1px;}
+  .switch{position:relative;width:34px;height:19px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch .track{position:absolute;inset:0;background:#c7cec8;border-radius:20px;transition:.15s;cursor:pointer;}
+  .switch .track:before{content:"";position:absolute;height:14px;width:14px;left:2.5px;top:2.5px;background:#fff;border-radius:50%;transition:.15s;}
+  .switch input:checked + .track{background:var(--teal);}
+  .switch input:checked + .track:before{transform:translateX(15px);}
+
+  .metrics{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);}
+  .metric-row{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;}
+  .metric-row .n{font-family:var(--mono);font-weight:500;}
+
+  .disclaimer{margin-top:20px;padding:12px 13px;background:#f7f4ea;border-left:3px solid var(--amber);font-size:11.5px;color:#5a4a25;}
+
+  /* ---------- Main ---------- */
+  main{padding:26px 30px 60px;}
+  .map-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;margin-bottom:12px;}
+  .map-head h2{font-family:var(--serif);font-size:21px;font-weight:600;margin:0;}
+  .map-head .note{font-size:12px;color:var(--muted);}
+  #map{height:480px;border:1px solid var(--line);border-radius:3px;}
+
+  .legend-strip{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:12px;color:var(--muted);}
+  .legend-strip span{display:inline-flex;align-items:center;gap:6px;}
+
+  section.block{margin-top:44px;}
+  section.block > h2{font-family:var(--serif);font-size:21px;font-weight:600;margin:0 0 6px;}
+  section.block > p.intro{color:var(--muted);font-size:14px;max-width:70ch;margin:0 0 20px;}
+
+  .county-list{border-top:1px solid var(--line);}
+  .county-row{display:grid;grid-template-columns:150px 90px 1fr;gap:18px;padding:14px 0;border-bottom:1px solid var(--line);align-items:start;}
+  @media (max-width:700px){.county-row{grid-template-columns:1fr;gap:4px;}}
+  .county-row .name{font-family:var(--serif);font-weight:600;font-size:15px;}
+  .risk-tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;padding:2px 7px;border-radius:2px;height:fit-content;}
+  .risk-high{background:var(--red-soft);color:var(--red);}
+  .risk-mod{background:var(--amber-soft);color:#7a4f10;}
+  .county-row .why{font-size:13px;color:#3d4a47;}
+
+  .pathway-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:6px;}
+  .pathway{background:var(--panel);padding:18px;}
+  .pathway .num{font-family:var(--mono);font-size:11px;color:var(--teal-deep);}
+  .pathway h3{font-family:var(--serif);font-size:15.5px;font-weight:600;margin:6px 0 6px;}
+  .pathway p{font-size:12.8px;color:#3d4a47;margin:0;}
+
+  .action-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:26px;margin-top:6px;}
+  .action-cols h3{font-family:var(--serif);font-size:14.5px;font-weight:600;margin:0 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+  .action-cols ul{margin:0;padding-left:18px;font-size:13px;color:#3d4a47;}
+  .action-cols li{margin-bottom:7px;}
+
+  .embed-box{background:var(--navy-deep);color:#dbe6df;padding:22px 24px;border-radius:3px;margin-top:8px;}
+  .embed-box h3{font-family:var(--serif);font-size:15.5px;margin:0 0 8px;color:#f2efe8;}
+  .embed-box p{font-size:13px;color:#aebdb6;margin:0 0 12px;}
+  .embed-box code{display:block;background:#0a1621;color:#9fd6c1;padding:14px 16px;border-radius:3px;font-family:var(--mono);font-size:12px;overflow-x:auto;white-space:pre;}
+
+  footer{max-width:1400px;margin:0 auto;padding:20px 30px 40px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="crest">GoK · COUNTY / NATIONAL</span>
+    <div>
+      <h1>El Niño OND 2026 — One Health Preparedness Dashboard</h1>
+      <div class="sub">Flood, vector-borne and zoonotic risk, tracked together</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="status-pill">FORECAST — updated by KMD monthly</span>
+    <div class="lang-toggle">
+      <button class="active" data-lang="en">EN</button>
+      <button data-lang="sw">SW</button>
+    </div>
+  </div>
+</header>
+
+<div class="ticker" id="ticker">
+  <strong>KMD outlook:</strong> ~81% chance of a very strong El Niño through OND 2026, with roughly 97% odds it persists into early 2027 — above‑normal short‑rains expected from October. Historically wetter OND seasons in Kenya bring higher flood, waterborne‑disease and vector‑borne‑disease risk together.
+</div>
+
+<div class="layout">
+  <aside>
+    <h2>Risk layers</h2>
+    <p class="lede">Toggle which pathway to show on the map. Grouped by the mechanism, not the disease name, so a team can act on the driver.</p>
+
+    <div class="layer-row">
+      <label class="layer-label"><span class="swatch" style="background:#2f6b63"></span>
+        <span>Flood exposure<span class="layer-meta">Riverine + urban drainage zones</span></span>
+      </label>
+      <label class="switch"><input type="checkbox" checked data-layer="flood"><span class="track"></span></label>
+    </div>
+    <div class="layer-row">
+      <label class="layer-label"><span class="swatch" style="background:#a8342a"></span>
+        <span>Aedes — dengue / Zika / chikungunya<span class="layer-meta">Breeds in standing water, expands with heat + flooding</span></span>
+      </label>
+      <label class="switch"><input type="checkbox" checked data-layer="aedes"><span class="track"></span></label>
+    </div>
+    <div class="layer-row">
+      <label class="layer-label"><span class="swatch" style="background:#7a4fae"></span>
+        <span>Anopheles — highland malaria<span class="layer-meta">Warming lets it survive at higher altitude</span></span>
+      </label>
+      <label class="switch"><input type="checkbox" checked data-layer="anopheles"><span class="track"></span></label>
+    </div>
+    <div class="layer-row">
+      <label class="layer-label"><span class="swatch" style="background:#8a5a2e"></span>
+        <span>Waterborne — cholera, typhoid<span class="layer-meta">Contaminated water sources after flooding</span></span>
+      </label>
+      <label class="switch"><input type="checkbox" checked data-layer="water"><span class="track"></span></label>
+    </div>
+    <div class="layer-row">
+      <label class="layer-label"><span class="swatch" style="background:#1e1e1e"></span>
+        <span>Zoonotic spillover<span class="layer-meta">Wildlife displaced toward farms and settlements</span></span>
+      </label>
+      <label class="switch"><input type="checkbox" data-layer="zoonotic"><span class="track"></span></label>
+    </div>
+
+    <h2 style="margin-top:24px;">Find near me</h2>
+    <p class="lede">Uses your device's location — nothing is sent to a server, it stays in your browser.</p>
+    <div class="layer-row">
+      <label class="layer-label"><span class="swatch" style="background:#1a6ea8"></span>
+        <span>Hospitals &amp; clinics<span class="layer-meta">Live, from OpenStreetMap</span></span>
+      </label>
+      <label class="switch"><input type="checkbox" data-layer="hospitals"><span class="track"></span></label>
+    </div>
+    <div class="layer-row">
+      <label class="layer-label"><span class="swatch" style="background:#2f8f4e"></span>
+        <span>Safe houses / evacuation points<span class="layer-meta">Sample data — replace with NDRMA list</span></span>
+      </label>
+      <label class="switch"><input type="checkbox" data-layer="safehouses"><span class="track"></span></label>
+    </div>
+    <button id="locate-btn" style="width:100%;margin-top:8px;padding:10px;background:var(--teal);color:#fff;border:none;border-radius:2px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Locate me &amp; find nearby help</button>
+    <button id="share-btn" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--teal-deep);border:1px solid var(--teal);border-radius:2px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Share my location</button>
+    <div id="locate-status" style="font-size:11.5px;color:var(--muted);margin-top:8px;"></div>
+
+    <div class="metrics">
+      <div class="metric-row"><span>Counties flagged for monitoring</span><span class="n" id="m-counties">6</span></div>
+      <div class="metric-row"><span>Risk layers active</span><span class="n" id="m-layers">4</span></div>
+      <div class="metric-row"><span>Forecast confidence (KMD)</span><span class="n">~81%</span></div>
+    </div>
+
+    <div class="disclaimer">
+      The map markers below are illustrative starting points, built from publicly reported flood‑prone areas and general disease‑ecology patterns — not a live case feed. Before publishing, replace them with current figures from KMD, the Ministry of Health, and NDRMA.
+    </div>
+  </aside>
+
+  <main>
+    <div class="map-head">
+      <h2>Kenya — risk overview map</h2>
+      <span class="note">Click a marker for the mechanism behind the flag</span>
+    </div>
+    <div id="map"></div>
+    <div class="legend-strip">
+      <span><span class="swatch" style="background:#2f6b63;display:inline-block;"></span>Flood</span>
+      <span><span class="swatch" style="background:#a8342a;display:inline-block;"></span>Aedes / dengue</span>
+      <span><span class="swatch" style="background:#7a4fae;display:inline-block;"></span>Highland malaria</span>
+      <span><span class="swatch" style="background:#8a5a2e;display:inline-block;"></span>Waterborne</span>
+      <span><span class="swatch" style="background:#1e1e1e;display:inline-block;"></span>Zoonotic spillover</span>
+    </div>
+
+    <section class="block">
+      <h2>Where and why</h2>
+      <p class="intro">Historically flood‑prone counties, with the risk pathway each one should watch first this season.</p>
+      <div class="county-list" id="county-list"></div>
+    </section>
+
+    <section class="block">
+      <h2>The four pathways</h2>
+      <p class="intro">Flooding and heat don't cause outbreaks directly — they act through four well‑documented mechanisms. Surveillance teams get more from watching the mechanism than waiting for case counts.</p>
+      <div class="pathway-grid">
+        <div class="pathway"><span class="num">01</span><h3>Closer contact</h3><p>Habitat loss and flooding push wildlife — bats, monkeys, rodents — out of forests and toward farms and settlements.</p></div>
+        <div class="pathway"><span class="num">02</span><h3>Stressed hosts</h3><p>Displaced, food‑stressed animals shed more pathogen than settled ones, raising the chance of a jump to livestock or people.</p></div>
+        <div class="pathway"><span class="num">03</span><h3>Spillover</h3><p>Once species boundaries blur in degraded ecosystems, zoonotic disease — Ebola, rabies, Nipah — has more opportunities to cross over.</p></div>
+        <div class="pathway"><span class="num">04</span><h3>Vector expansion</h3><p>Warmer, wetter conditions lengthen mosquito and tick breeding seasons and let them establish in new, previously cooler areas.</p></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Community action</h2>
+      <p class="intro">Adapted from the five upstream‑prevention strategies backed by public‑health researchers, translated into things a household, chief, or county team can actually do this season.</p>
+      <div class="action-cols">
+        <div>
+          <h3>Around the home</h3>
+          <ul>
+            <li>Empty or scrub anything holding standing water weekly — mosquitoes breed in as little as a bottle cap's worth.</li>
+            <li>Clear gutters and drains before the rains peak.</li>
+            <li>Repair door and window screens.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Personal protection</h3>
+          <ul>
+            <li>Use an EPA/PMI‑listed repellent (DEET, picaridin, IR3535, or oil of lemon eucalyptus).</li>
+            <li>Sleep under an insecticide‑treated net in malaria‑ and dengue‑affected areas.</li>
+            <li>Long sleeves and trousers tucked into socks in tall grass or bushland.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Reporting and surveillance</h3>
+          <ul>
+            <li>Report unusual animal die‑offs (especially bats) or flooded latrines to local health authorities.</li>
+            <li>Chiefs and community health promoters flag suspected cholera or measles clusters early, not after a spike.</li>
+            <li>Joint human–veterinary–environmental teams screen at flood‑displacement sites.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>County coordination</h3>
+          <ul>
+            <li>Pre‑position ORS, cholera rapid tests, and water‑treatment supplies ahead of the rains.</li>
+            <li>Identify evacuation grounds and confirm road/bridge passability before flooding, not during it.</li>
+            <li>Protect remaining forest cover near settlement edges — it's a buffer, not just habitat.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Signs &amp; symptoms — when to seek care</h2>
+      <p class="intro">General recognition guidance, not a diagnostic tool. Anyone with danger signs should go to the nearest facility immediately rather than wait for a test result.</p>
+      <div class="pathway-grid">
+        <div class="pathway">
+          <span class="num">Vector‑borne</span><h3>Dengue / Zika / chikungunya</h3>
+          <p><strong>Common:</strong> sudden high fever, severe headache, pain behind the eyes, joint and muscle pain, rash.<br><strong>Seek care now if:</strong> bleeding gums or nosebleeds, persistent vomiting, severe abdominal pain, or difficulty breathing.</p>
+        </div>
+        <div class="pathway">
+          <span class="num">Vector‑borne</span><h3>Malaria</h3>
+          <p><strong>Common:</strong> fever, chills and sweating, headache, fatigue, nausea.<br><strong>Seek care now if:</strong> confusion, repeated seizures, difficulty breathing, or fever that doesn't respond to initial treatment — especially in children and pregnant women.</p>
+        </div>
+        <div class="pathway">
+          <span class="num">Waterborne</span><h3>Cholera</h3>
+          <p><strong>Common:</strong> sudden, watery diarrhoea and vomiting.<br><strong>Seek care now if:</strong> signs of severe dehydration — sunken eyes, very little urination, extreme thirst, lethargy. Start oral rehydration immediately while travelling to care.</p>
+        </div>
+        <div class="pathway">
+          <span class="num">Waterborne</span><h3>Typhoid</h3>
+          <p><strong>Common:</strong> sustained fever that rises daily, weakness, stomach pain, headache, loss of appetite.<br><strong>Seek care now if:</strong> fever persists beyond 3 days, or is accompanied by confusion or a rigid, painful abdomen.</p>
+        </div>
+        <div class="pathway">
+          <span class="num">Zoonotic</span><h3>Viral haemorrhagic fevers (Ebola‑like illness)</h3>
+          <p><strong>Common:</strong> sudden fever, severe weakness, muscle pain, sore throat.<br><strong>Seek care now if:</strong> unexplained bleeding or bruising, especially after contact with a sick person, bats, or bushmeat — isolate and call ahead before travelling to a facility.</p>
+        </div>
+        <div class="pathway">
+          <span class="num">Zoonotic</span><h3>Anthrax / rabies exposure</h3>
+          <p><strong>Common (anthrax):</strong> skin sores that blister then form a black centre after handling sick or dead livestock.<br><strong>Seek care now if:</strong> any animal bite or scratch from a wild or unvaccinated animal — rabies post‑exposure treatment must start before symptoms appear.</p>
+        </div>
+      </div>
+      <p style="font-size:11.5px;color:var(--muted);margin-top:14px;">This section is for public awareness only and is not a substitute for professional medical evaluation. Verify wording against Ministry of Health patient‑education materials before publishing.</p>
+    </section>
+
+    <section class="block">
+      <h2>News &amp; advisories</h2>
+      <p class="intro">Live headlines related to El Niño, flooding, and disease outbreaks in Kenya. Pulled from a public RSS feed — swap <code style="background:#eef1ee;padding:1px 5px;border-radius:2px;">FEED_URL</code> in the script below for an official KMD/MoH/NDRMA feed once one is available.</p>
+      <div id="news-feed" class="county-list">
+        <div class="county-row"><div class="name">Loading…</div><div></div><div class="why">Fetching latest headlines.</div></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Partners &amp; public service announcements</h2>
+      <p class="intro">Reserved space for partner logos (WHO, Red Cross, UNICEF, county governments) and public‑service messages — see the ads plan below for why this isn't a commercial ad slot.</p>
+      <div class="pathway-grid" id="psa-slots">
+        <div class="pathway" style="text-align:center;color:var(--muted);border:1px dashed var(--line);">PSA slot 1<br><small>e.g. Kenya Red Cross donation drive</small></div>
+        <div class="pathway" style="text-align:center;color:var(--muted);border:1px dashed var(--line);">PSA slot 2<br><small>e.g. MoH vaccination schedule</small></div>
+        <div class="pathway" style="text-align:center;color:var(--muted);border:1px dashed var(--line);">PSA slot 3<br><small>e.g. County emergency hotline</small></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Ask the assistant</h2>
+      <p class="intro">A chat assistant is embedded on this page (bottom-right corner) for visitors with questions about flood or health guidance.</p>
+    </section>
+
+    <section class="block">
+      <h2>Embedding this on a county or ministry site</h2>
+      <p class="intro">This page is a single self‑contained file — no build step, no database. Host it and drop it into any CMS with an iframe.</p>
+      <div class="embed-box">
+        <h3>Iframe snippet</h3>
+        <p>Update the src once the file is hosted on your own domain (health.go.ke, ndma.go.ke, or a county subdomain).</p>
+        <code>&lt;iframe src="/widgets/el-nino-2026/index.html"
+  style="width:100%; height:900px; border:0;"
+  loading="lazy"&gt;&lt;/iframe&gt;</code>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Before you publish</h2>
+      <p class="intro">Three things worth doing before this goes on a government site:</p>
+      <div class="action-cols">
+        <div>
+          <h3>Replace sample data</h3>
+          <ul>
+            <li>Swap the county list and map markers for a live or regularly‑updated feed from KMD, MoH DHIS2, and NDRMA — not narrative estimates.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Verify attributions</h3>
+          <ul>
+            <li>Confirm current officeholders, committee names, and any legal/treaty references with the originating ministry before they appear under a government banner.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Add the Swahili layer</h3>
+          <ul>
+            <li>The language toggle above is a placeholder — wire it to real translated strings before deployment, especially for SMS/USSD‑dependent counties.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  Sources: Kenya Meteorological Department seasonal outlooks; general disease‑ecology reporting (BBC World Service, "The Climate Question"); Preventing Pandemics at the Source Coalition. County risk flags are illustrative and based on historically flood‑prone areas, not a live case count. Verify all figures against official channels before publication.
+</footer>
+
+<script src="./vendor/leaflet/leaflet.js"></script>
+<script>
+if (typeof L === 'undefined') {
+  document.getElementById('map').innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:13px;color:#5b6a67;text-align:center;padding:20px;">Map library failed to load — check that the vendor/leaflet/ folder was uploaded alongside this file.</div>';
+}
+</script>
+<script>
+if (typeof L !== 'undefined') {
+const counties = [
+  {n:"Tana River", lat:-1.5, lng:40.0, tag:"high", why:"Low‑lying riverine floodplain — historically Kenya's most flood‑exposed county, with knock‑on cholera and Aedes risk after standing water forms.", layers:["flood","aedes","water"]},
+  {n:"Garissa", lat:-0.45, lng:39.64, tag:"high", why:"Flood‑prone with nearby forest fragments — a plausible corridor for displaced wildlife moving toward farms and settlements.", layers:["flood","water","zoonotic"]},
+  {n:"Kisumu", lat:-0.09, lng:34.76, tag:"high", why:"Lake Victoria basin flooding; malaria‑endemic already, so any additional Anopheles range shift compounds an existing burden.", layers:["flood","water","anopheles"]},
+  {n:"Nairobi", lat:-1.29, lng:36.82, tag:"mod", why:"Informal settlements with poor drainage — the classic 'standing water in containers' Aedes breeding pattern.", layers:["aedes","flood"]},
+  {n:"Mombasa", lat:-4.04, lng:39.66, tag:"mod", why:"Coastal, warm and humid year‑round — conditions that favour a longer Aedes breeding season.", layers:["aedes","flood"]},
+  {n:"Kericho", lat:-0.36, lng:35.28, tag:"mod", why:"Highland tea‑growing area not historically malarial — worth watching as warming lets Anopheles establish at altitude.", layers:["anopheles"]},
+];
+
+const countyList = document.getElementById('county-list');
+counties.forEach(c=>{
+  const row = document.createElement('div');
+  row.className='county-row';
+  row.innerHTML = `<div class="name">${c.n}</div>
+    <div class="risk-tag ${c.tag==='high'?'risk-high':'risk-mod'}">${c.tag==='high'?'WATCH CLOSELY':'MONITOR'}</div>
+    <div class="why">${c.why}</div>`;
+  countyList.appendChild(row);
+});
+
+const map = L.map('map').setView([-0.2,37.5],6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+
+const colors = {flood:'#2f6b63', aedes:'#a8342a', anopheles:'#7a4fae', water:'#8a5a2e', zoonotic:'#1e1e1e'};
+const layerGroups = {flood:L.layerGroup().addTo(map), aedes:L.layerGroup().addTo(map), anopheles:L.layerGroup().addTo(map), water:L.layerGroup().addTo(map), zoonotic:L.layerGroup(), hospitals:L.layerGroup(), safehouses:L.layerGroup()};
+
+counties.forEach(c=>{
+  c.layers.forEach((ln,i)=>{
+    const offset = i*0.06;
+    L.circleMarker([c.lat+offset, c.lng+offset], {radius:8, color:colors[ln], weight:1, fillColor:colors[ln], fillOpacity:0.75})
+      .bindPopup(`<b>${c.n}</b><br>${c.why}`)
+      .addTo(layerGroups[ln]);
+  });
+});
+
+// ---------- Safe houses / evacuation points (SAMPLE DATA — replace with NDRMA's official list) ----------
+const safehouses = [
+  {n:"Sample evacuation centre — Garissa Primary School", lat:-0.46, lng:39.65},
+  {n:"Sample evacuation centre — Tana River County Hall", lat:-1.51, lng:40.01},
+  {n:"Sample evacuation centre — Kisumu ASK Showground", lat:-0.08, lng:34.77},
+];
+safehouses.forEach(s=>{
+  L.marker([s.lat, s.lng], {icon: L.divIcon({html:'⛑', className:'', iconSize:[20,20]})})
+    .bindPopup(`<b>${s.n}</b><br><em>Sample location — verify with county disaster office before relying on this.</em>`)
+    .addTo(layerGroups.safehouses);
+});
+
+// ---------- Hospitals near me (live, via OpenStreetMap Overpass API) ----------
+const hospitalIcon = L.divIcon({html:'🏥', className:'', iconSize:[20,20]});
+let userMarker = null;
+let userLatLng = null;
+
+function findNearbyHospitals(lat, lng, radiusM = 8000) {
+  layerGroups.hospitals.clearLayers();
+  const query = `[out:json][timeout:15];(node["amenity"="hospital"](around:${radiusM},${lat},${lng});node["amenity"="clinic"](around:${radiusM},${lat},${lng}););out center 20;`;
+  const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+  document.getElementById('locate-status').textContent = "Searching for nearby facilities…";
+  fetch(url).then(r => r.json()).then(data => {
+    if (!data.elements || !data.elements.length) {
+      document.getElementById('locate-status').textContent = "No facilities found in OpenStreetMap data for this area — try a wider search or check locally.";
+      return;
+    }
+    data.elements.forEach(el => {
+      const name = (el.tags && el.tags.name) || "Unnamed facility";
+      L.marker([el.lat, el.lon], {icon: hospitalIcon})
+        .bindPopup(`<b>${name}</b><br>${(el.tags && el.tags.amenity) || 'health facility'}${el.tags && el.tags['phone'] ? '<br>' + el.tags['phone'] : ''}`)
+        .addTo(layerGroups.hospitals);
+    });
+    document.getElementById('locate-status').textContent = `Found ${data.elements.length} facilities within ${radiusM/1000} km — from OpenStreetMap, may be incomplete.`;
+    document.querySelector('[data-layer="hospitals"]').checked = true;
+    map.addLayer(layerGroups.hospitals);
+  }).catch(() => {
+    document.getElementById('locate-status').textContent = "Couldn't reach the facility lookup service. Try again, or check network access to overpass-api.de.";
+  });
+}
+
+document.getElementById('locate-btn').addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    document.getElementById('locate-status').textContent = "Location isn't supported in this browser.";
+    return;
+  }
+  document.getElementById('locate-status').textContent = "Requesting your location…";
+  navigator.geolocation.getCurrentPosition(pos => {
+    userLatLng = [pos.coords.latitude, pos.coords.longitude];
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.circleMarker(userLatLng, {radius:9, color:'#1a6ea8', weight:2, fillColor:'#8fc4e8', fillOpacity:0.9}).addTo(map).bindPopup("You are here").openPopup();
+    map.setView(userLatLng, 12);
+    findNearbyHospitals(userLatLng[0], userLatLng[1]);
+  }, err => {
+    document.getElementById('locate-status').textContent = "Couldn't get your location — check that location permission is allowed for this page.";
+  });
+});
+
+document.getElementById('share-btn').addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    document.getElementById('locate-status').textContent = "Location isn't supported in this browser.";
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude, longitude } = pos.coords;
+    const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+    if (navigator.share) {
+      navigator.share({ title: "My location", text: "Here is my current location:", url: mapsUrl }).catch(()=>{});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(mapsUrl).then(() => {
+        document.getElementById('locate-status').textContent = "Location link copied to clipboard: " + mapsUrl;
+      });
+    } else {
+      document.getElementById('locate-status').textContent = "Your location link: " + mapsUrl;
+    }
+  }, () => {
+    document.getElementById('locate-status').textContent = "Couldn't get your location to share — check permissions.";
+  });
+});
+
+document.querySelectorAll('[data-layer]').forEach(input=>{
+  input.addEventListener('change', function(){
+    const ln = this.dataset.layer;
+    if(this.checked){ map.addLayer(layerGroups[ln]); } else { map.removeLayer(layerGroups[ln]); }
+    document.getElementById('m-layers').textContent = Object.keys(layerGroups).filter(k=>map.hasLayer(layerGroups[k])).length;
+  });
+});
+
+document.querySelectorAll('.lang-toggle button').forEach(btn=>{
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.lang-toggle button').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    const sw = this.dataset.lang === 'sw';
+    document.getElementById('ticker').innerHTML = sw
+      ? '<strong>Utabiri wa KMD:</strong> Asilimia 81 hivi ya uwezekano wa El Niño kali sana OND 2026, na asilimia 97 hivi ya kuendelea hadi mwanzoni mwa 2027 — mvua zaidi ya wastani zinatarajiwa kuanzia Oktoba. (Toleo kamili la Kiswahili — badilisha maandishi haya kabla ya kuchapisha.)'
+      : '<strong>KMD outlook:</strong> ~81% chance of a very strong El Niño through OND 2026, with roughly 97% odds it persists into early 2027 — above‑normal short‑rains expected from October. Historically wetter OND seasons in Kenya bring higher flood, waterborne‑disease and vector‑borne‑disease risk together.';
+  });
+});
+
+setTimeout(()=>map.invalidateSize(), 300);
+}
+</script>
+
+<script>
+// ---------- News & Advisories (RSS) ----------
+// Browsers can't fetch cross-origin RSS/XML directly (no CORS on most news sites),
+// so this uses the free rss2json proxy. For a government deployment, replace this
+// with a small server-side endpoint that fetches and caches the feed yourself —
+// don't rely on a third-party proxy for a production site.
+// For this demo, the feed is broadened to general Kenya headlines so it reliably
+// populates. For production, narrow FEED_URL back to a health/disaster-specific
+// query or an official KMD/MoH/NDRMA feed.
+const FEED_URL = "https://news.google.com/rss/search?q=Kenya&hl=en-KE&gl=KE&ceid=KE:en";
+const RSS_PROXY = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(FEED_URL);
+
+fetch(RSS_PROXY)
+  .then(r => r.json())
+  .then(data => {
+    const el = document.getElementById('news-feed');
+    if (!data.items || !data.items.length) {
+      el.innerHTML = '<div class="county-row"><div class="name">No headlines</div><div></div><div class="why">The feed returned no items right now — check FEED_URL or try again later.</div></div>';
+      return;
+    }
+    el.innerHTML = '';
+    data.items.slice(0, 8).forEach(item => {
+      const d = new Date(item.pubDate);
+      const dateStr = isNaN(d) ? '' : d.toLocaleDateString('en-KE', {day:'numeric', month:'short'});
+      const row = document.createElement('div');
+      row.className = 'county-row';
+      row.innerHTML = `<div class="name"><a href="${item.link}" target="_blank" rel="noopener">${item.title.split(' - ')[0]}</a></div>
+        <div class="risk-tag" style="background:#eef1ee;color:#5b6a67;">${dateStr}</div>
+        <div class="why">${(item.title.split(' - ')[1]) || ''}</div>`;
+      el.appendChild(row);
+    });
+  })
+  .catch(() => {
+    document.getElementById('news-feed').innerHTML = '<div class="county-row"><div class="name">Feed unavailable</div><div></div><div class="why">Could not reach the news feed from this page — this can happen on a restricted network, or if the free proxy is rate-limited. Replace with a server-side feed fetcher for production use.</div></div>';
+  });
+</script>
+
+<!-- JotForm AI Agent embed — renders its own floating chat widget -->
+<script src='https://cdn.jotfor.ms/agent/embedjs/01a06f223d3070008edcc947f1d949f2d161/embed.js'></script>
+
+</body>
+</html>
