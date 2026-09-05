@@ -187,6 +187,12 @@
       </label>
       <label class="switch"><input type="checkbox" data-layer="safehouses"><span class="track"></span></label>
     </div>
+    <div class="layer-row">
+      <label class="layer-label"><span class="swatch" style="background:#a8342a"></span>
+        <span>Surveyed hospital stops<span class="layer-meta">33 named stops, Digital Matatus dataset</span></span>
+      </label>
+      <label class="switch"><input type="checkbox" data-layer="surveyedHospitals"><span class="track"></span></label>
+    </div>
     <button id="locate-btn" style="width:100%;margin-top:8px;padding:10px;background:var(--teal);color:#fff;border:none;border-radius:2px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Locate me &amp; find nearby help</button>
     <button id="share-btn" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--teal-deep);border:1px solid var(--teal);border-radius:2px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Share my location</button>
     <div id="locate-status" style="font-size:11.5px;color:var(--muted);margin-top:8px;"></div>
@@ -416,7 +422,7 @@ const map = L.map('map').setView([-0.2,37.5],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 
 const colors = {flood:'#2f6b63', aedes:'#a8342a', anopheles:'#7a4fae', water:'#8a5a2e', zoonotic:'#1e1e1e'};
-const layerGroups = {flood:L.layerGroup().addTo(map), aedes:L.layerGroup().addTo(map), anopheles:L.layerGroup().addTo(map), water:L.layerGroup().addTo(map), zoonotic:L.layerGroup(), hospitals:L.layerGroup(), safehouses:L.layerGroup(), matatu:L.layerGroup().addTo(map)};
+const layerGroups = {flood:L.layerGroup().addTo(map), aedes:L.layerGroup().addTo(map), anopheles:L.layerGroup().addTo(map), water:L.layerGroup().addTo(map), zoonotic:L.layerGroup(), hospitals:L.layerGroup(), safehouses:L.layerGroup(), matatu:L.layerGroup().addTo(map), surveyedHospitals:L.layerGroup()};
 
 counties.forEach(c=>{
   c.layers.forEach((ln,i)=>{
@@ -551,14 +557,28 @@ function populateHospitalDropdown() {
     const key = h.name.trim().toLowerCase();
     if (!seen.has(key)) seen.set(key, h);
   });
+  const uniqueHospitals = [...seen.values()].sort((a,b) => a.name.localeCompare(b.name));
+
   const sel = document.getElementById('hospital-select');
   sel.innerHTML = '';
-  [...seen.values()].sort((a,b) => a.name.localeCompare(b.name)).forEach(h => {
+  uniqueHospitals.forEach(h => {
     const opt = document.createElement('option');
     opt.value = h.id;
     opt.textContent = h.name;
     sel.appendChild(opt);
   });
+
+  // Render the same 33 stops as toggleable map markers
+  layerGroups.surveyedHospitals.clearLayers();
+  uniqueHospitals.forEach(h => {
+    const routeList = h.routes.length
+      ? h.routes.map(r => `Route ${r.route}${r.towards ? ' → ' + r.towards : ''}`).join('<br>')
+      : 'No surveyed route recorded at this stop.';
+    L.marker([h.lat, h.lon], {icon: L.divIcon({html:'🏥', className:'', iconSize:[20,20]})})
+      .bindPopup(`<b>${h.name}</b><br><small>${h.lat.toFixed(5)}, ${h.lon.toFixed(5)}</small><hr style="margin:6px 0;">${routeList}`)
+      .addTo(layerGroups.surveyedHospitals);
+  });
+  document.getElementById('m-layers').textContent = Object.keys(layerGroups).filter(k => map.hasLayer(layerGroups[k])).length;
 }
 
 function haversineM(lat1, lon1, lat2, lon2) {
