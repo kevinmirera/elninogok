@@ -217,6 +217,21 @@
     </div>
 
     <section class="block">
+      <h2>Getting to a hospital by matatu (Nairobi)</h2>
+      <p class="intro">Uses route and stop data from the <a href="https://www.digitalmatatus.com/" target="_blank" rel="noopener">Digital Matatus Project</a> — a real, publicly released GTFS survey of Nairobi's matatu network. It's a historical dataset (routes were surveyed and are not live-updated), so treat it as a starting point and confirm locally, especially for routes that may have changed.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
+        <div style="flex:1;min-width:220px;">
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">Hospital</label>
+          <select id="hospital-select" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:2px;font-family:var(--sans);font-size:13.5px;">
+            <option>Loading hospital list…</option>
+          </select>
+        </div>
+        <button id="matatu-btn" style="padding:10px 16px;background:var(--navy);color:#fff;border:none;border-radius:2px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Use my location &amp; find a route</button>
+      </div>
+      <div id="matatu-result" class="county-list"></div>
+    </section>
+
+    <section class="block">
       <h2>Where and why</h2>
       <p class="intro">Historically flood‑prone counties, with the risk pathway each one should watch first this season.</p>
       <div class="county-list" id="county-list"></div>
@@ -401,7 +416,7 @@ const map = L.map('map').setView([-0.2,37.5],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 
 const colors = {flood:'#2f6b63', aedes:'#a8342a', anopheles:'#7a4fae', water:'#8a5a2e', zoonotic:'#1e1e1e'};
-const layerGroups = {flood:L.layerGroup().addTo(map), aedes:L.layerGroup().addTo(map), anopheles:L.layerGroup().addTo(map), water:L.layerGroup().addTo(map), zoonotic:L.layerGroup(), hospitals:L.layerGroup(), safehouses:L.layerGroup()};
+const layerGroups = {flood:L.layerGroup().addTo(map), aedes:L.layerGroup().addTo(map), anopheles:L.layerGroup().addTo(map), water:L.layerGroup().addTo(map), zoonotic:L.layerGroup(), hospitals:L.layerGroup(), safehouses:L.layerGroup(), matatu:L.layerGroup().addTo(map)};
 
 counties.forEach(c=>{
   c.layers.forEach((ln,i)=>{
@@ -510,6 +525,122 @@ document.querySelectorAll('.lang-toggle button').forEach(btn=>{
       : '<strong>KMD outlook:</strong> ~81% chance of a very strong El Niño through OND 2026, with roughly 97% odds it persists into early 2027 — above‑normal short‑rains expected from October. Historically wetter OND seasons in Kenya bring higher flood, waterborne‑disease and vector‑borne‑disease risk together.';
   });
 });
+
+// ---------- Matatu directions (Digital Matatus GTFS data, Nairobi only) ----------
+let matatuData = null, matatuShapes = null, matatuLoadPromise = null;
+
+function loadMatatuData() {
+  if (matatuLoadPromise) return matatuLoadPromise;
+  matatuLoadPromise = Promise.all([
+    fetch('./vendor/matatu-data.json').then(r => r.json()),
+    fetch('./vendor/matatu-shapes.json').then(r => r.json())
+  ]).then(([data, shapes]) => {
+    matatuData = data;
+    matatuShapes = shapes;
+    populateHospitalDropdown();
+    return data;
+  }).catch(() => {
+    document.getElementById('hospital-select').innerHTML = '<option>Data unavailable — check vendor/matatu-data.json was uploaded</option>';
+  });
+  return matatuLoadPromise;
+}
+
+function populateHospitalDropdown() {
+  const seen = new Map();
+  matatuData.hospitalStops.forEach(h => {
+    const key = h.name.trim().toLowerCase();
+    if (!seen.has(key)) seen.set(key, h);
+  });
+  const sel = document.getElementById('hospital-select');
+  sel.innerHTML = '';
+  [...seen.values()].sort((a,b) => a.name.localeCompare(b.name)).forEach(h => {
+    const opt = document.createElement('option');
+    opt.value = h.id;
+    opt.textContent = h.name;
+    sel.appendChild(opt);
+  });
+}
+
+function haversineM(lat1, lon1, lat2, lon2) {
+  const R = 6371000, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+function nearestStops(lat, lon, list, n) {
+  return list.map(s => ({...s, dist: haversineM(lat, lon, s.lat, s.lon)}))
+             .sort((a,b) => a.dist - b.dist).slice(0, n);
+}
+
+function renderMatatuResult(html) {
+  document.getElementById('matatu-result').innerHTML = html;
+}
+
+document.getElementById('matatu-btn').addEventListener('click', async () => {
+  renderMatatuResult('<div class="county-row"><div class="name">Loading…</div><div></div><div class="why">Fetching route data and your location.</div></div>');
+  await loadMatatuData();
+  if (!matatuData) return;
+
+  const hospitalId = document.getElementById('hospital-select').value;
+  const hospital = matatuData.hospitalStops.find(h => h.id === hospitalId);
+  if (!hospital) { renderMatatuResult('<div class="county-row"><div class="name">Pick a hospital first</div></div>'); return; }
+
+  if (!navigator.geolocation) {
+    renderMatatuResult('<div class="county-row"><div class="name">Location not supported</div><div></div><div class="why">This browser can\'t share your location — try picking a hospital and checking the route on the map manually.</div></div>');
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude, longitude } = pos.coords;
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.circleMarker([latitude, longitude], {radius:9, color:'#1a6ea8', weight:2, fillColor:'#8fc4e8', fillOpacity:0.9}).addTo(map);
+
+    const nearUser = nearestStops(latitude, longitude, matatuData.stops, 12);
+    const hospitalRouteIds = new Set(hospital.routes.map(r => r.id));
+
+    let match = null;
+    for (const stop of nearUser) {
+      const shared = stop.routes.find(r => hospitalRouteIds.has(r.id));
+      if (shared) { match = { boarding: stop, route: shared }; break; }
+    }
+
+    layerGroups.matatu.clearLayers();
+
+    if (!match) {
+      renderMatatuResult(`<div class="county-row"><div class="name">No direct route found</div><div class="risk-tag risk-mod">CHECK LOCALLY</div>
+        <div class="why">None of your ${nearUser.length} nearest surveyed stops share a route with ${hospital.name} in this dataset. This could mean no direct matatu, or a route added since the ~2013–2015 survey. Consider a boda-boda for the last stretch, or drive/walk directions instead.</div></div>`);
+      return;
+    }
+
+    const boardMarker = L.marker([match.boarding.lat, match.boarding.lon], {icon: L.divIcon({html:'🚏', className:'', iconSize:[20,20]})})
+      .bindPopup(`<b>Board here:</b> ${match.boarding.name}<br>Route ${match.route.route} — towards ${match.route.towards || match.route.desc}`).addTo(layerGroups.matatu);
+    const alightMarker = L.marker([hospital.lat, hospital.lon], {icon: L.divIcon({html:'🏥', className:'', iconSize:[20,20]})})
+      .bindPopup(`<b>Alight near:</b> ${hospital.name}`).addTo(layerGroups.matatu);
+
+    const shapeIds = (matatuShapes.routeShapes && matatuShapes.routeShapes[match.route.id]) || [];
+    let drawn = false;
+    shapeIds.forEach(sid => {
+      const pts = matatuShapes.shapes[sid];
+      if (pts && pts.length) {
+        L.polyline(pts, {color:'#16324a', weight:3, opacity:0.75, dashArray:'6,4'}).addTo(layerGroups.matatu);
+        drawn = true;
+      }
+    });
+
+    map.addLayer(layerGroups.matatu);
+    const bounds = L.latLngBounds([[latitude,longitude],[hospital.lat,hospital.lon],[match.boarding.lat,match.boarding.lon]]);
+    map.fitBounds(bounds.pad(0.3));
+
+    renderMatatuResult(`<div class="county-row"><div class="name">Route ${match.route.route}</div><div class="risk-tag" style="background:#dbe9e6;color:var(--teal-deep);">MATCH FOUND</div>
+      <div class="why">Walk to <strong>${match.boarding.name}</strong> (${Math.round(match.boarding.dist)} m away) and board a route ${match.route.route} matatu towards ${match.route.towards || match.route.desc}. Alight near <strong>${hospital.name}</strong>.${drawn ? '' : ' (Route line not available for this shape in the dataset — stop-to-stop only.)'} Fares and exact stop names shift over time — confirm with the conductor.</div></div>`);
+  }, () => {
+    renderMatatuResult('<div class="county-row"><div class="name">Location permission needed</div><div></div><div class="why">Allow location access for this page, then try again.</div></div>');
+  });
+});
+
+// Load hospital list in the background so the dropdown is ready without blocking the map
+loadMatatuData();
 
 setTimeout(()=>map.invalidateSize(), 300);
 }
