@@ -48,7 +48,7 @@
 
   /* ---------- Layout ---------- */
   .layout{display:grid;grid-template-columns:300px 1fr;gap:0;max-width:1400px;margin:0 auto;}
-  @media (max-width:880px){.layout{grid-template-columns:1fr;}}
+  @media (max-width:880px){.layout{grid-template-columns:1fr;} aside{order:2; border-right:none; border-top:1px solid var(--line);} main{order:1;}}
 
   aside{background:var(--panel);border-right:1px solid var(--line);padding:24px 22px;}
   aside h2{font-family:var(--serif);font-size:15px;font-weight:600;margin:0 0 4px;}
@@ -110,6 +110,43 @@
   .embed-box h3{font-family:var(--serif);font-size:15.5px;margin:0 0 8px;color:#f2efe8;}
   .embed-box p{font-size:13px;color:#aebdb6;margin:0 0 12px;}
   .embed-box code{display:block;background:#0a1621;color:#9fd6c1;padding:14px 16px;border-radius:3px;font-family:var(--mono);font-size:12px;overflow-x:auto;white-space:pre;}
+
+  /* ---------- Buttons & form controls (shared) ---------- */
+  .btn-primary, .btn-outline{font-family:var(--sans);font-size:13px;font-weight:600;padding:11px 16px;border-radius:2px;cursor:pointer;min-height:44px;}
+  .btn-primary{background:var(--navy);color:#fff;border:none;}
+  .btn-outline{background:transparent;color:var(--teal-deep);border:1px solid var(--teal);}
+  .btn-block{width:100%;margin-top:8px;}
+  select{font-family:var(--sans);font-size:13.5px;padding:10px;border:1px solid var(--line);border-radius:2px;min-height:44px;}
+  #hospital-select{width:100%;}
+
+  .matatu-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;}
+  .matatu-select-wrap{flex:1;min-width:220px;}
+
+  /* ---------- Mobile (phones) ---------- */
+  @media (max-width:600px){
+    header.top{padding:14px 16px;}
+    header.top h1{font-size:19px;}
+    header.top .sub{font-size:12.5px;}
+    .brand .crest{display:none;}
+    .ticker{padding:9px 16px;font-size:12.5px;}
+    aside{padding:18px 16px;}
+    main{padding:16px 16px 40px;}
+    .map-head h2{font-size:17px;}
+    section.block > h2{font-size:17px;}
+    #map{height:340px;}
+    .layer-row{padding:13px 0;}
+    .switch{width:40px;height:23px;}
+    .switch .track:before{height:17px;width:17px;}
+    .switch input:checked + .track:before{transform:translateX(17px);}
+    .matatu-controls{flex-direction:column;align-items:stretch;}
+    .matatu-select-wrap{min-width:0;}
+    #matatu-btn{width:100%;}
+    .county-row{gap:6px;}
+    .action-cols{gap:20px;}
+    .embed-box{padding:16px;}
+    .embed-box code{font-size:11px;padding:12px;}
+    footer{padding:16px 16px 32px;}
+  }
 
   footer{max-width:1400px;margin:0 auto;padding:20px 30px 40px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);}
 </style>
@@ -193,8 +230,8 @@
       </label>
       <label class="switch"><input type="checkbox" data-layer="surveyedHospitals"><span class="track"></span></label>
     </div>
-    <button id="locate-btn" style="width:100%;margin-top:8px;padding:10px;background:var(--teal);color:#fff;border:none;border-radius:2px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Locate me &amp; find nearby help</button>
-    <button id="share-btn" style="width:100%;margin-top:8px;padding:10px;background:transparent;color:var(--teal-deep);border:1px solid var(--teal);border-radius:2px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Share my location</button>
+    <button id="locate-btn" class="btn-primary btn-block" style="background:var(--teal);">Locate me &amp; find nearby help</button>
+    <button id="share-btn" class="btn-outline btn-block">Share my location</button>
     <div id="locate-status" style="font-size:11.5px;color:var(--muted);margin-top:8px;"></div>
 
     <div class="metrics">
@@ -225,14 +262,14 @@
     <section class="block">
       <h2>Getting to a hospital by matatu (Nairobi)</h2>
       <p class="intro">Uses route and stop data from the <a href="https://www.digitalmatatus.com/" target="_blank" rel="noopener">Digital Matatus Project</a> — a real, publicly released GTFS survey of Nairobi's matatu network. It's a historical dataset (routes were surveyed and are not live-updated), so treat it as a starting point and confirm locally, especially for routes that may have changed.</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
-        <div style="flex:1;min-width:220px;">
+      <div class="matatu-controls">
+        <div class="matatu-select-wrap">
           <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">Hospital</label>
-          <select id="hospital-select" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:2px;font-family:var(--sans);font-size:13.5px;">
+          <select id="hospital-select">
             <option>Loading hospital list…</option>
           </select>
         </div>
-        <button id="matatu-btn" style="padding:10px 16px;background:var(--navy);color:#fff;border:none;border-radius:2px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Use my location &amp; find a route</button>
+        <button id="matatu-btn" class="btn-primary">Use my location &amp; find a route</button>
       </div>
       <div id="matatu-result" class="county-list"></div>
     </section>
